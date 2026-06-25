@@ -5,9 +5,18 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag/version name for the release (e.g. v1.0)"
+        required: true
+        default: "v1.0"
 
 permissions:
   contents: write
+
+env:
+  # Tag name from the pushed tag, or from the manual dispatch input.
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
   release:
@@ -35,13 +44,13 @@ jobs:
         run: |
           mkdir -p release-assets
           cp app/build/outputs/apk/debug/app-debug.apk \
-             "release-assets/TelloPilot-${GITHUB_REF_NAME}-debug.apk"
+             "release-assets/TelloPilot-${RELEASE_TAG}-debug.apk"
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         with:
-          name: "TelloPilot ${{ github.ref_name }}"
-          tag_name: ${{ github.ref_name }}
+          name: "TelloPilot ${{ env.RELEASE_TAG }}"
+          tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           body: |
             APK debug **sideloadable** de TelloPilot (pas de signature release — voir README).
