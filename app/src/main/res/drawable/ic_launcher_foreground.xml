@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple quadcopter glyph centered in the adaptive icon safe zone -->
+    <group android:translateX="0" android:translateY="0">
+        <!-- arms -->
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="4"
+            android:pathData="M38,38 L70,70 M70,38 L38,70" />
+        <!-- rotors -->
+        <path android:fillColor="#FFFFFF" android:pathData="M38,38m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+        <path android:fillColor="#FFFFFF" android:pathData="M70,38m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+        <path android:fillColor="#FFFFFF" android:pathData="M38,70m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+        <path android:fillColor="#FFFFFF" android:pathData="M70,70m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+        <!-- body -->
+        <path android:fillColor="#2979FF" android:pathData="M54,54m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0" />
+    </group>
+</vector>
