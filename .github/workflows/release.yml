@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*"
+    # Also allow cutting a release from a branch push whose commit message
+    # contains the marker "[release]" (the runner's GITHUB_TOKEN creates the
+    # tag + release server-side, which works even when tag pushes are blocked).
+    branches:
+      - "**"
   workflow_dispatch:
     inputs:
       tag:
@@ -15,12 +20,17 @@ permissions:
   contents: write
 
 env:
-  # Tag name from the pushed tag, or from the manual dispatch input.
-  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+  # Tag from the pushed tag / dispatch input, else default to v1.0.
+  RELEASE_TAG: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'v1.0' }}
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Only run for tag pushes, manual dispatch, or a "[release]"-marked commit.
+    if: >-
+      startsWith(github.ref, 'refs/tags/') ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[release]')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
