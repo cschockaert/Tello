@@ -266,16 +266,26 @@ class TelloController(
 
     // ---- Threads ----------------------------------------------------------
 
-    /** Sends `rc a b c d` at ~20 Hz to keep the link alive while connected. */
+    /**
+     * Sends `rc a b c d` at ~20 Hz to keep the link alive while airborne.
+     *
+     * Gated on [flying]: streaming the neutral "rc 0 0 0 0" is a "hold altitude"
+     * (hover) command, so if it kept flowing after `land` it would override the
+     * descent and the drone would never touch down. `land`/`emergency` set
+     * [flying] to false, which stops this loop and lets the descent happen.
+     * On the ground there is no auto-land timeout to guard against anyway.
+     */
     private fun startRcLoop() {
         rcThread = thread(name = "tello-rc") {
             while (running.get()) {
                 try {
-                    val a = rcRoll.get()
-                    val b = rcPitch.get()
-                    val c = rcThrottle.get()
-                    val d = rcYaw.get()
-                    sendRaw("rc $a $b $c $d")
+                    if (flying.get()) {
+                        val a = rcRoll.get()
+                        val b = rcPitch.get()
+                        val c = rcThrottle.get()
+                        val d = rcYaw.get()
+                        sendRaw("rc $a $b $c $d")
+                    }
                     sleepQuiet(RC_PERIOD_MS)
                 } catch (e: Exception) {
                     if (running.get()) Log.w(TAG, "rc loop hiccup", e)
