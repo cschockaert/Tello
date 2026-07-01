@@ -1,87 +1,104 @@
 # CLAUDE.md — TelloPilot
 
-Guide de contribution pour Claude Code sur ce dépôt. Lis-le avant de builder,
-release ou pousser.
+Contribution guide for Claude Code on this repo. Read it before building,
+releasing or pushing.
 
-## Projet
+## Language: English only
 
-Appli Android native Kotlin de pilotage d'un drone Ryze/DJI Tello (SDK UDP).
-`minSdk 26`, `targetSdk 34`. Voir `README.md` pour l'architecture et la
-checklist de test manuel.
+**All content in this repository must be written in English** — no exceptions:
 
-## Build & vérification
+- Code comments and KDoc.
+- User-facing strings (UI labels in `res/values/strings.xml`, `onLog`/`toast`
+  messages, status text). If localization is ever needed, English stays the
+  default `values/` resource and other languages go in `values-<lang>/`.
+- Documentation (`README.md`, `CLAUDE.md`, inline docs).
+- Commit messages, branch names, PR titles and descriptions.
+- Release notes and workflow YAML comments.
 
-- Build : `./gradlew assembleDebug` (wrapper Gradle 8.7 inclus, JDK 17).
-- Le **SDK Android n'est pas disponible dans le sandbox** (endpoints Google
-  bloqués par le proxy) → la compilation complète et l'APK sont vérifiés **en
-  CI** (`.github/workflows/android.yml`), pas localement.
-- Vérif locale possible malgré tout : les modules purement logiques
-  (`TelloController`, `TelloState`, `JoystickView`) se compilent contre le
-  compilateur Kotlin embarqué + un `android.jar` stub. Utile pour attraper les
-  erreurs de syntaxe/typage avant de pousser.
-- Honnêteté obligatoire : le **vol réel** (UDP, vidéo, écriture médias) n'est
-  **pas vérifiable** ici. Ne jamais prétendre que le pilotage « fonctionne » —
-  seuls la compilation et le build CI sont prouvés.
+When editing or adding anything, keep it in English even if nearby legacy text
+was in another language — and translate that legacy text while you are there.
 
-## Release sémantique — marqueur `[release vX.Y.Z]`
+## Project
 
-On versionne en **SemVer** (`vMAJOR.MINOR.PATCH`). Une release publie une
-**GitHub Release** avec l'APK debug attaché, via
-`.github/workflows/release.yml`.
+Native Android app in Kotlin to fly a Ryze/DJI Tello drone (UDP SDK).
+`minSdk 26`, `targetSdk 34`. See `README.md` for the architecture and the
+manual test checklist.
 
-### Pourquoi ce mécanisme
+## Build & verification
 
-Le proxy git du sandbox **bloque le push de tags** (et de `main`) en 403, et le
-token de l'intégration GitHub ne peut ni dispatcher un workflow ni créer une
-release. Solution : c'est le **`GITHUB_TOKEN` du runner** (côté serveur, hors
-proxy) qui crée le tag + la release. On le déclenche par un simple push de la
-branche autorisée portant un marqueur dans le message de commit.
+- Build: `./gradlew assembleDebug` (Gradle 8.7 wrapper included, JDK 17).
+- The **Android SDK is not available in the sandbox** (Google endpoints blocked
+  by the proxy) → full compilation and the APK are verified **in CI**
+  (`.github/workflows/android.yml`), not locally.
+- Local check still possible: the pure-logic modules (`TelloController`,
+  `TelloState`, `JoystickView`) compile against the embedded Kotlin compiler +
+  a stub `android.jar`. Useful to catch syntax/typing errors before pushing.
+- Mandatory honesty: **real flight** (UDP, video, media writing) is **not
+  verifiable** here. Never claim piloting "works" — only compilation and the CI
+  build are proven.
 
-### Comment couper une release
+## Semantic release — `[release vX.Y.Z]` marker
 
-1. Bumper la version de l'app dans `app/build.gradle.kts` :
-   - `versionName` = la version SemVer (ex. `"1.1.1"`),
-   - `versionCode` = incrément entier monotone (ex. `2` → `3`).
-   L'APK doit refléter la version publiée, sinon il s'installe sous l'ancienne.
-2. Committer avec un marqueur **`[release vX.Y.Z]`** dans le message, puis
-   `git push -u origin <branche>`.
-3. Le workflow `release.yml` :
-   - ne s'exécute que si le message HEAD contient `[release]` (ou push de tag,
-     ou `workflow_dispatch`),
-   - résout le tag depuis `[release vX.Y.Z]` (défaut `v1.0` si absent),
-   - build `assembleDebug`, renomme l'APK `TelloPilot-vX.Y.Z-debug.apk`,
-   - crée la release + tag `vX.Y.Z` avec l'APK attaché (`softprops/action-gh-release`).
-4. Vérifier : `get_release_by_tag vX.Y.Z` → l'asset `.apk` doit être `uploaded`.
+We version in **SemVer** (`vMAJOR.MINOR.PATCH`). A release publishes a **GitHub
+Release** with the debug APK attached, via `.github/workflows/release.yml`.
 
-Un commit **sans** `[release]` déclenche seulement le CI de build normal — pas
-de release. Le tag pointe sur le commit buildé de la branche.
+### Why this mechanism
 
-### Historique des versions
+The sandbox git proxy **blocks pushing tags** (and `main`) with a 403, and the
+GitHub integration token can neither dispatch a workflow nor create a release.
+Solution: the **runner's `GITHUB_TOKEN`** (server-side, outside the proxy)
+creates the tag + the release. We trigger it with a plain push of the allowed
+branch carrying a marker in the commit message.
 
-- `v1.0` — MVP initial.
-- `v1.1` — fix atterrissage (boucle `rc` conditionnée à `flying`) + handshake SDK.
-- `v1.1.1` — alignement `versionName`/`versionCode` sur le tag (l'APK affichait
-  encore 1.0).
+### How to cut a release
+
+1. Bump the app version in `app/build.gradle.kts`:
+   - `versionName` = the SemVer version (e.g. `"1.1.1"`),
+   - `versionCode` = a monotonic integer increment (e.g. `2` → `3`).
+   The APK must reflect the published version, otherwise it installs under the
+   old one.
+2. Commit with a **`[release vX.Y.Z]`** marker in the message, then
+   `git push -u origin <branch>`.
+3. The `release.yml` workflow:
+   - runs only if the HEAD commit message contains `[release` (or a tag push,
+     or `workflow_dispatch`),
+   - resolves the tag from `[release vX.Y.Z]` (default `v1.0` if absent),
+   - builds `assembleDebug`, renames the APK `TelloPilot-vX.Y.Z-debug.apk`,
+   - creates the release + tag `vX.Y.Z` with the APK attached
+     (`softprops/action-gh-release`).
+4. Verify: `get_release_by_tag vX.Y.Z` → the `.apk` asset must be `uploaded`.
+
+A commit **without** `[release` triggers only the normal build CI — no release.
+The tag points at the built commit of the branch.
+
+> Note: match the marker prefix `[release` (no closing bracket), so both
+> `[release]` and `[release vX.Y.Z]` trigger. Matching `[release]` alone would
+> miss the versioned form.
+
+### Version history
+
+- `v1.0` — initial MVP.
+- `v1.1` — reliable SDK handshake (takeoff + video work). Landing still broken.
+- `v1.1.1` — landing fix (rc loop gated on `flying`) + `versionName`/`versionCode`
+  aligned with the tag (the APK still reported 1.0).
 
 ## Git / PR
 
-- Développer sur la branche dédiée `claude/tello-android-app-mvp-5xuyfa`.
-- Le proxy n'autorise le push que de **cette branche** (pas de tags, pas de
-  `main` en direct).
-- Une PR déjà **mergée est terminée** : toute suite de travail = **nouvelle
-  PR** (ne pas empiler sur un historique déjà mergé).
-- Toujours `git push -u origin <branche>` ; retry avec backoff en cas d'erreur
-  réseau. Merges de PR via l'API GitHub (MCP).
+- Develop on the dedicated branch `claude/tello-android-app-mvp-5xuyfa`.
+- The proxy only allows pushing **that branch** (no tags, no direct `main`).
+- A **merged PR is finished**: any follow-up work = **new PR** (do not stack on
+  already-merged history; restart the branch from the latest `main`).
+- Always `git push -u origin <branch>`; retry with backoff on network errors.
+  PR merges via the GitHub API (MCP).
 
-## Pièges spécifiques Tello (déjà gérés — ne pas régresser)
+## Tello-specific pitfalls (already handled — do not regress)
 
-- **Boucle `rc` gated sur `flying`** : streamer `rc 0 0 0 0` en continu est une
-  commande de maintien d'altitude qui **empêche l'atterrissage**. `land`/
-  `emergency` mettent `flying=false` pour couper le keepalive. Ne jamais rendre
-  la boucle `rc` inconditionnelle.
-- **Handshake SDK bloquant** : attendre l'`ok` du Tello avant de démarrer la
-  boucle rc / `streamon`. Envoyer `takeoff`/`streamon` avant l'`ok` = ignoré
-  silencieusement.
-- **Binding réseau** : `bindProcessToNetwork` sur le transport WIFI avant
-  d'ouvrir les sockets (le WiFi Tello n'a pas d'internet).
-- **I/O socket jamais sur le main thread**.
+- **rc loop gated on `flying`**: continuously streaming `rc 0 0 0 0` is a
+  hold-altitude command that **prevents landing**. `land`/`emergency` set
+  `flying=false` to cut the keep-alive. Never make the rc loop unconditional.
+- **Blocking SDK handshake**: wait for the Tello's `ok` before starting the rc
+  loop / `streamon`. Sending `takeoff`/`streamon` before the `ok` = silently
+  ignored.
+- **Network binding**: `bindProcessToNetwork` on the WIFI transport before
+  opening the sockets (the Tello Wi-Fi has no internet).
+- **Socket I/O never on the main thread.**

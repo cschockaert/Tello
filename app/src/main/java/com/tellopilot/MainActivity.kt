@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     ) { result ->
         val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
         if (!granted) {
-            toast("Localisation refusée : impossible d'identifier le WiFi Tello sur Android 12")
+            toast("Location denied: cannot identify the Tello Wi-Fi on Android 12")
         }
     }
 
@@ -121,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         }
         btnEmergency.setOnClickListener {
             // Always allowed when connected — this is the panic button.
-            if (controller.isConnected) controller.emergency() else toast("Non connecté")
+            if (controller.isConnected) controller.emergency() else toast("Not connected")
         }
         btnSpeed.setOnClickListener {
             fastMode = !fastMode
@@ -136,15 +136,15 @@ class MainActivity : AppCompatActivity() {
         }
         btnPhoto.setOnClickListener {
             val v = video
-            if (v == null) toast("Vidéo non démarrée") else v.capturePhoto { ok ->
-                toast(if (ok) "Photo enregistrée" else "Échec photo")
+            if (v == null) toast("Video not started") else v.capturePhoto { ok ->
+                toast(if (ok) "Photo saved" else "Photo failed")
             }
         }
         btnRec.setOnClickListener { toggleRecording() }
     }
 
     private fun toggleRecording() {
-        val v = video ?: run { toast("Vidéo non démarrée"); return }
+        val v = video ?: run { toast("Video not started"); return }
         if (v.isRecording) {
             v.stopRecording()
             binding.btnRec.text = getString(R.string.rec_start)
@@ -156,7 +156,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun ensureConnected(): Boolean {
         if (!controller.isConnected) {
-            toast("Connecte-toi d'abord (CONNECT)")
+            toast("Connect first (CONNECT)")
             return false
         }
         return true
@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity() {
      * UDP reaches the drone even though the Tello network has no internet.
      */
     private fun bindWifiThenConnect() {
-        binding.txtStatus.text = "Recherche du réseau WiFi…"
+        binding.txtStatus.text = "Searching for the Wi-Fi network…"
         val request = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .build()
@@ -187,20 +187,20 @@ class MainActivity : AppCompatActivity() {
                 boundNetwork = network
                 connectivityManager.bindProcessToNetwork(network)
                 runOnUiThread {
-                    binding.txtStatus.text = "WiFi lié — connexion au Tello…"
+                    binding.txtStatus.text = "Wi-Fi bound — connecting to the Tello…"
                     startTelloSession()
                 }
             }
 
             override fun onLost(network: Network) {
-                runOnUiThread { binding.txtStatus.text = "Réseau WiFi perdu" }
+                runOnUiThread { binding.txtStatus.text = "Wi-Fi network lost" }
             }
         }
         networkCallback = callback
         try {
             connectivityManager.requestNetwork(request, callback)
         } catch (e: SecurityException) {
-            binding.txtStatus.text = "Permission réseau manquante: ${e.message}"
+            binding.txtStatus.text = "Missing network permission: ${e.message}"
         }
     }
 
@@ -222,7 +222,7 @@ class MainActivity : AppCompatActivity() {
             onFailed = {
                 runOnUiThread {
                     disconnectAll()
-                    toast("Mode SDK KO — vérifie le WiFi Tello et reconnecte")
+                    toast("SDK mode failed — check the Tello Wi-Fi and reconnect")
                 }
             }
         )
@@ -257,7 +257,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderTelemetry(state: TelloState) {
         binding.txtTelemetry.text =
-            "Bat: ${state.batteryPct} %  |  Alt: ${state.heightCm} cm  |  Sol: ${state.tofCm} cm"
+            "Bat: ${state.batteryPct} %  |  Alt: ${state.heightCm} cm  |  Ground: ${state.tofCm} cm"
     }
 
     // ---- Surface ---------------------------------------------------------

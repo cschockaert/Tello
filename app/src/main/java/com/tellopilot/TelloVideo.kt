@@ -87,13 +87,13 @@ class TelloVideo(
             }
         } catch (e: Exception) {
             Log.e(TAG, "video socket open failed", e)
-            onLog("Erreur ouverture socket vidéo: ${e.message}")
+            onLog("Video socket open error: ${e.message}")
             running.set(false)
             return
         }
         startReceiver()
         startDecoder()
-        onLog("Réception vidéo démarrée (UDP $VIDEO_PORT)")
+        onLog("Video reception started (UDP $VIDEO_PORT)")
     }
 
     /** Stops decoding/receiving and tears down the codec. Finalizes any recording. */
@@ -106,7 +106,7 @@ class TelloVideo(
         socket = null
         nalQueue.clear()
         releaseCodec()
-        onLog("Réception vidéo arrêtée")
+        onLog("Video reception stopped")
     }
 
     // ---- Receiver: UDP -> Annex-B NAL units ------------------------------
@@ -174,10 +174,10 @@ class TelloVideo(
                 it.configure(format, surface, null, 0)
                 it.start()
             }
-            onLog("Décodeur H264 configuré (${videoWidth}x${videoHeight})")
+            onLog("H264 decoder configured (${videoWidth}x${videoHeight})")
         } catch (e: Exception) {
             Log.e(TAG, "codec configure failed", e)
-            onLog("Erreur configuration décodeur: ${e.message}")
+            onLog("Decoder configuration error: ${e.message}")
             releaseCodec()
         }
     }
@@ -237,10 +237,10 @@ class TelloVideo(
                 muxerStarted = false
                 frameIndex = 0
                 recording = true
-                onLog("Enregistrement démarré: $name")
+                onLog("Recording started: $name")
             } catch (e: Exception) {
                 Log.e(TAG, "startRecording failed", e)
-                onLog("Erreur démarrage REC: ${e.message}")
+                onLog("REC start error: ${e.message}")
                 cleanupMuxerLocked()
             }
         }
@@ -270,7 +270,7 @@ class TelloVideo(
                     Log.w(TAG, "publish video failed", e)
                 }
             }
-            onLog("Enregistrement terminé")
+            onLog("Recording finished")
             muxer = null
             muxerPfd = null
             muxerUri = null
@@ -343,7 +343,7 @@ class TelloVideo(
         mainHandler.post {
             val bmp: Bitmap? = if (textureView.isAvailable) textureView.bitmap else null
             if (bmp == null) {
-                onLog("Aucune frame à capturer (vidéo non démarrée ?)")
+                onLog("No frame to capture (video not started?)")
                 onResult(false)
                 return@post
             }
@@ -376,11 +376,11 @@ class TelloVideo(
                 val done = ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }
                 resolver.update(uri, done, null, null)
             }
-            onLog("Photo enregistrée: $name")
+            onLog("Photo saved: $name")
             true
         } catch (e: Exception) {
             Log.e(TAG, "saveJpeg failed", e)
-            onLog("Erreur enregistrement photo: ${e.message}")
+            onLog("Photo save error: ${e.message}")
             uri?.let { try { resolver.delete(it, null, null) } catch (_: Exception) {} }
             false
         }

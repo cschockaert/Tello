@@ -1,115 +1,122 @@
 # TelloPilot
 
-Application Android native (Kotlin) pour piloter un drone **DJI / Ryze Tello**
-(modèle standard, pas l'EDU), en alternative à l'appli officielle et à aTello.
+Native Android app (Kotlin) to fly a **DJI / Ryze Tello** drone (standard model,
+not the EDU), as an alternative to the official app and to aTello.
 
-Cible : **Android 12** (testé visé sur OnePlus 7T). `minSdk 26`, `targetSdk 34`.
+Target: **Android 12** (aimed at a OnePlus 7T). `minSdk 26`, `targetSdk 34`.
 
-> ⚠️ **État de validation.** Ce projet a été développé sans drone ni téléphone
-> disponibles. Ce qui est **vérifié** : la compilation Kotlin des modules logiques
-> et le build de l'APK debug via GitHub Actions. Ce qui n'est **PAS vérifié** : le
-> pilotage réel, la liaison UDP, le décodage vidéo et l'écriture des médias — ils
-> dépendent du matériel et devront être validés au premier vol (voir la checklist).
+> ⚠️ **Validation status.** This project was developed without a drone or a phone
+> available. What **is verified**: Kotlin compilation of the logic modules and the
+> debug APK build via GitHub Actions. What is **NOT verified**: real piloting, the
+> UDP link, video decoding and media writing — they depend on hardware and must be
+> validated on the first flight (see the checklist).
 
-## Fonctionnalités MVP
+## MVP features
 
-| # | Fonction | Implémentation |
-|---|----------|----------------|
-| 1 | Connexion + SDK mode | `TelloController` : bind WiFi, envoi de `command` ×2, statut affiché |
-| 2 | Double joystick (mode 2) | `JoystickView` custom (Canvas, sans asset), sortie normalisée [-1,1] → canaux `rc` |
-| 3 | Takeoff / Land / EMERGENCY | Boutons ; EMERGENCY rouge bien visible coupe les moteurs |
-| 4 | Toggle NORMAL / RAPIDE | Multiplicateur d'amplitude des sticks (0.5 vs 1.0), état visuel |
-| 5 | Vidéo live | `TelloVideo` : UDP 11111 → reconstruction NAL Annex-B → `MediaCodec` → `TextureView` |
-| 6 | Photo | Capture de la frame courante du `TextureView` → JPEG dans `Pictures/TelloPilot/` (MediaStore) |
-| 7 | Enregistrement vidéo | Mux du flux H264 en MP4 via `MediaMuxer` dans `Movies/TelloPilot/` (MediaStore) |
-| 8 | Télémétrie | Batterie %, altitude (h), distance sol (tof) lues depuis le state UDP 8890 |
+| # | Feature | Implementation |
+|---|---------|----------------|
+| 1 | Connection + SDK mode | `TelloController`: Wi-Fi bind, blocking `command` handshake (waits for `ok`), status shown |
+| 2 | Dual joystick (mode 2) | Custom `JoystickView` (Canvas, no asset), normalized [-1,1] output → `rc` channels |
+| 3 | Takeoff / Land / EMERGENCY | Buttons; a prominent red EMERGENCY cuts the motors |
+| 4 | NORMAL / FAST toggle | Stick amplitude multiplier (0.5 vs 1.0), shown visually |
+| 5 | Live video | `TelloVideo`: UDP 11111 → Annex-B NAL reconstruction → `MediaCodec` → `TextureView` |
+| 6 | Photo | Grab the current `TextureView` frame → JPEG in `Pictures/TelloPilot/` (MediaStore) |
+| 7 | Video recording | Mux the H264 stream to MP4 via `MediaMuxer` in `Movies/TelloPilot/` (MediaStore) |
+| 8 | Telemetry | Battery %, altitude (h), ground distance (tof) read from the UDP 8890 state |
 
 ## Architecture
 
 ```
 app/src/main/java/com/tellopilot/
-├── MainActivity.kt     UI, permissions runtime, binding réseau WiFi, câblage sticks
-├── TelloController.kt  Sockets UDP 8889/8890, SDK mode, boucle rc 20 Hz, parsing state
-├── TelloVideo.kt       UDP 11111, split NAL, MediaCodec (affichage) + MediaMuxer (REC) + JPEG
-├── JoystickView.kt     Custom View tactile réutilisable, auto-recentrage
-└── TelloState.kt       Parsing thread-safe de la chaîne de télémétrie
+├── MainActivity.kt     UI, runtime permissions, Wi-Fi network binding, stick wiring
+├── TelloController.kt  UDP sockets 8889/8890, SDK handshake, 20 Hz rc loop, state parsing
+├── TelloVideo.kt       UDP 11111, NAL split, MediaCodec (display) + MediaMuxer (REC) + JPEG
+├── JoystickView.kt     Reusable custom touch View, auto-recentering
+└── TelloState.kt       Thread-safe parsing of the telemetry string
 ```
 
-### Points techniques notables
+### Notable technical points
 
-- **Piège réseau résolu** : le WiFi du Tello n'a pas d'internet, Android garde
-  donc la data mobile par défaut. On utilise `ConnectivityManager.requestNetwork`
-  (transport **WIFI**) puis `bindProcessToNetwork(network)` **avant** d'ouvrir les
-  sockets, sinon l'UDP n'atteint jamais le drone.
-- **Boucle rc 20 Hz** : le Tello atterrit seul après ~15 s sans commande. Un thread
-  envoie `rc a b c d` toutes les 50 ms tant qu'on est connecté.
-- **Threads dédiés** : toutes les sockets et le décodage tournent hors du main
-  thread ; l'état est partagé via des `Atomic*`.
-- **Scoped storage** : aucune permission `WRITE_EXTERNAL_STORAGE`. Photos et vidéos
-  passent par `MediaStore` (avec `IS_PENDING`) → visibles dans la galerie sans
-  permission de stockage sur Android 12.
-- **H264** : découpe sur les start codes Annex-B (`00 00 01`), repérage SPS (type 7)
-  et PPS (type 8) pour configurer le décodeur et fournir les `csd` au muxer.
+- **Network gotcha handled**: the Tello Wi-Fi has no internet, so Android keeps
+  mobile data as the default network. We use `ConnectivityManager.requestNetwork`
+  (transport **WIFI**) then `bindProcessToNetwork(network)` **before** opening the
+  sockets, otherwise the UDP never reaches the drone.
+- **Blocking SDK handshake**: `connect` sends `command` and waits for the drone's
+  `ok` (with retries) before starting the rc loop / `streamon`. Sending
+  `takeoff`/`streamon` before that `ok` is silently ignored by the drone.
+- **rc loop gated on `flying`**: streaming `rc 0 0 0 0` is a "hold altitude" (hover)
+  command, so if it kept flowing after `land` it would override the descent and the
+  drone would never touch down. The loop only streams while airborne; `land` /
+  `emergency` set `flying=false` to stop the keep-alive. (While flying, the loop runs
+  at ~20 Hz to prevent the drone's ~15 s no-command auto-land.)
+- **Dedicated threads**: all sockets and decoding run off the main thread; state is
+  shared through `Atomic*`.
+- **Scoped storage**: no `WRITE_EXTERNAL_STORAGE` permission. Photos and videos go
+  through `MediaStore` (with `IS_PENDING`) → visible in the gallery without a storage
+  permission on Android 12.
+- **H264**: split on Annex-B start codes (`00 00 01`), detect SPS (type 7) and PPS
+  (type 8) to configure the decoder and provide the `csd` to the muxer.
 
 ## Build
 
-Projet Gradle autosuffisant (wrapper inclus). Aucune dépendance propriétaire.
+Self-contained Gradle project (wrapper included). No proprietary dependency.
 
 ```bash
 ./gradlew assembleDebug
-# APK : app/build/outputs/apk/debug/app-debug.apk
+# APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ### CI
 
-`.github/workflows/android.yml` : à chaque push, set up JDK 17 + Android SDK,
-build `assembleDebug` et **upload l'APK debug en artifact** (`tellopilot-debug-apk`).
+`.github/workflows/android.yml`: on each push, sets up JDK 17 + Android SDK, builds
+`assembleDebug` and **uploads the debug APK as an artifact** (`tellopilot-debug-apk`).
 
-## Installation sur le téléphone
+Releases are cut via `.github/workflows/release.yml` — see `CLAUDE.md` for the
+`[release vX.Y.Z]` semantic-release mechanism.
 
-1. Récupérer l'APK debug (artifact CI ou build local).
-2. Autoriser les sources inconnues, installer l'APK.
-3. Au premier lancement, accorder la permission **Localisation** (nécessaire pour
-   identifier le WiFi Tello sur Android 12 ; remplacée par `NEARBY_WIFI_DEVICES`
-   sur Android 13+).
+## Install on the phone
 
-## ✅ Checklist de test manuel (à faire avec le drone)
+1. Grab the debug APK (CI artifact, GitHub Release, or local build).
+2. Allow unknown sources and install the APK.
+3. On first launch, grant the **Location** permission (needed to identify the Tello
+   Wi-Fi on Android 12; replaced by `NEARBY_WIFI_DEVICES` on Android 13+).
 
-Rien ci-dessous n'a pu être vérifié en sandbox. À valider dans l'ordre :
+## ✅ Manual test checklist (to do with the drone)
 
-- [ ] **WiFi** : allumer le Tello, connecter le téléphone au réseau `TELLO-XXXXXX`.
-      Laisser Android afficher « connecté sans internet » (ne PAS « oublier » le réseau).
-- [ ] **Connexion** : ouvrir l'app, appuyer **CONNECT**. Le statut doit passer à
-      « WiFi lié — connexion au Tello » puis afficher une réponse batterie.
-- [ ] **Télémétrie** : vérifier que Bat %, Alt et Sol se mettent à jour.
-- [ ] **Takeoff** : hélices dégagées, appuyer **TAKEOFF**. Le drone décolle et tient
-      en vol stationnaire (la boucle rc doit l'empêcher de se reposer après 15 s).
-- [ ] **Sticks** : stick gauche = gaz (haut/bas) + lacet (gauche/droite) ; stick droit
-      = avant/arrière + translation latérale. Vérifier les sens et l'absence de dérive
-      au centre.
-- [ ] **NORMAL / RAPIDE** : confirmer que RAPIDE augmente l'amplitude (autorité pleine).
-- [ ] **Vidéo** : l'image live doit apparaître dans le fond après CONNECT (streamon
-      est envoyé automatiquement). Vérifier latence/fluidité.
-- [ ] **Photo** : appuyer **PHOTO**, vérifier le JPEG dans la galerie
-      (`Pictures/TelloPilot/`).
-- [ ] **REC** : appuyer **REC**, voler quelques secondes, **STOP**. Vérifier que le
-      MP4 est **lisible dans la galerie** (`Movies/TelloPilot/`).
-- [ ] **LAND** puis **EMERGENCY** (au sol, hélices dégagées) : vérifier la coupure moteurs.
+Nothing below could be verified in the sandbox. Validate in order:
 
-## Limites connues / à vérifier au premier vol
+- [ ] **Wi-Fi**: power on the Tello, connect the phone to the `TELLO-XXXXXX` network.
+      Let Android show "connected, no internet" (do NOT "forget" the network).
+- [ ] **Connection**: open the app, tap **CONNECT**. The status should go to
+      "Wi-Fi bound — connecting to the Tello", then "SDK mode active" and a battery reply.
+- [ ] **Telemetry**: check that Bat %, Alt and Ground update.
+- [ ] **Takeoff**: props clear, tap **TAKEOFF**. The drone lifts off and holds a hover
+      (the rc loop should keep it up past the 15 s auto-land).
+- [ ] **Sticks**: left stick = throttle (up/down) + yaw (left/right); right stick =
+      forward/back + lateral strafe. Check directions and no drift at center.
+- [ ] **NORMAL / FAST**: confirm FAST increases the amplitude (full authority).
+- [ ] **Video**: the live image should appear in the background after CONNECT (streamon
+      is sent automatically). Check latency/smoothness.
+- [ ] **Photo**: tap **PHOTO**, check the JPEG in the gallery (`Pictures/TelloPilot/`).
+- [ ] **REC**: tap **REC**, fly a few seconds, **STOP**. Check the MP4 is **playable in
+      the gallery** (`Movies/TelloPilot/`).
+- [ ] **LAND**: the drone must land cleanly (no lingering hover). Then **EMERGENCY**
+      (on the ground, props clear): verify the motors cut.
 
-- **Sens des axes des sticks** : la convention mode-2 est implémentée mais les signes
-  (notamment roll/yaw) doivent être confirmés en vol et inversés si besoin dans
+## Known limits / to verify on the first flight
+
+- **Stick axis directions**: the mode-2 convention is implemented but the signs (roll/yaw
+  in particular) must be confirmed in flight and flipped if needed in
   `MainActivity.setupJoysticks()`.
-- **Muxing MP4** : chaque NAL VCL est écrit comme un échantillon avec un PTS
-  synthétique à 30 fps (le flux Tello ne porte pas d'horodatage). Le fichier devrait
-  être lisible ; si la durée/cadence semble fausse, ajuster `FPS` dans `TelloVideo`.
-- **Résolution vidéo** : initialisée à 960×720 (flux standard Tello) puis corrigée par
-  le décodeur via `INFO_OUTPUT_FORMAT_CHANGED`.
-- **Aucune validation hardware** n'a été possible en sandbox : pilotage, liaison UDP,
-  décodage et écriture médias sont à confirmer au premier vol réel.
+- **MP4 muxing**: each VCL NAL is written as one sample with a synthetic PTS at 30 fps
+  (the Tello stream carries no timestamps). The file should be playable; if the
+  duration/rate looks wrong, adjust `FPS` in `TelloVideo`.
+- **Video resolution**: initialized to 960×720 (standard Tello stream) then corrected by
+  the decoder via `INFO_OUTPUT_FORMAT_CHANGED`.
+- **No hardware validation** was possible in the sandbox: piloting, the UDP link,
+  decoding and media writing are to be confirmed on the first real flight.
 
-## Hors scope (phase 2)
+## Out of scope (phase 2)
 
-Manette Bluetooth/OTG, autopilotes (RTH/orbit/dronie), réglages bitrate/résolution,
-mode VR/FPV goggles.
+Bluetooth/OTG gamepad, autopilots (RTH/orbit/dronie), bitrate/resolution settings,
+VR/FPV goggles mode.

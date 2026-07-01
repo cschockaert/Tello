@@ -76,9 +76,9 @@ jobs:
           tag_name: ${{ steps.rel.outputs.tag }}
           generate_release_notes: true
           body: |
-            APK debug **sideloadable** de TelloPilot (pas de signature release — voir README).
+            **Sideloadable** debug APK of TelloPilot (no release signing — see README).
 
-            > ⚠️ Aucune validation hardware possible en sandbox : pilotage, liaison UDP,
-            > décodage vidéo et écriture des médias sont à confirmer au premier vol réel
-            > (voir la checklist du README).
+            > ⚠️ No hardware validation is possible in the sandbox: piloting, the UDP
+            > link, video decoding and media writing must be confirmed on the first real
+            > flight (see the README checklist).
           files: release-assets/*.apk
