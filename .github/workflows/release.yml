@@ -19,10 +19,6 @@ on:
 permissions:
   contents: write
 
-env:
-  # Tag from the pushed tag / dispatch input, else default to v1.0.
-  RELEASE_TAG: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'v1.0' }}
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -34,6 +30,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: rel
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [ "${GITHUB_REF#refs/tags/}" != "${GITHUB_REF}" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            # Parse "[release vX.Y]" from the commit message; default to v1.0.
+            TAG=$(git log -1 --pretty=%B | grep -oE '\[release v[0-9]+(\.[0-9]+)*\]' | grep -oE 'v[0-9]+(\.[0-9]+)*' | head -1)
+            TAG="${TAG:-v1.0}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release tag resolved to: $TAG"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -54,13 +65,13 @@ jobs:
         run: |
           mkdir -p release-assets
           cp app/build/outputs/apk/debug/app-debug.apk \
-             "release-assets/TelloPilot-${RELEASE_TAG}-debug.apk"
+             "release-assets/TelloPilot-${{ steps.rel.outputs.tag }}-debug.apk"
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         with:
-          name: "TelloPilot ${{ env.RELEASE_TAG }}"
-          tag_name: ${{ env.RELEASE_TAG }}
+          name: "TelloPilot ${{ steps.rel.outputs.tag }}"
+          tag_name: ${{ steps.rel.outputs.tag }}
           generate_release_notes: true
           body: |
             APK debug **sideloadable** de TelloPilot (pas de signature release — voir README).
