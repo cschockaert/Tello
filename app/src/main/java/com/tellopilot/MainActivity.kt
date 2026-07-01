@@ -205,16 +205,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startTelloSession() {
-        controller.connect()
         binding.btnConnect.text = getString(R.string.disconnect)
 
-        // Start video pipeline + ask the drone to stream.
+        // Open the video socket first so it's listening when the stream starts.
         val v = TelloVideo(applicationContext, binding.textureView) { msg ->
             runOnUiThread { binding.txtStatus.text = msg }
         }
         video = v
         v.start()
-        controller.streamOn()
+
+        // streamon must wait until SDK mode is confirmed, otherwise the drone
+        // ignores it and the screen stays black. Send it from the onReady callback.
+        // If SDK mode never comes up, tear down so the UI doesn't show a dead "connected".
+        controller.connect(
+            onReady = { controller.streamOn() },
+            onFailed = {
+                runOnUiThread {
+                    disconnectAll()
+                    toast("Mode SDK KO — vérifie le WiFi Tello et reconnecte")
+                }
+            }
+        )
     }
 
     private fun disconnectAll() {
