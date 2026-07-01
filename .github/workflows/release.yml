@@ -22,11 +22,13 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Only run for tag pushes, manual dispatch, or a "[release]"-marked commit.
+    # Only run for tag pushes, manual dispatch, or a "[release ...]"-marked commit.
+    # Match the prefix "[release" (no closing bracket) so both "[release]" and
+    # "[release vX.Y.Z]" trigger — "[release]" alone would miss the versioned form.
     if: >-
       startsWith(github.ref, 'refs/tags/') ||
       github.event_name == 'workflow_dispatch' ||
-      contains(github.event.head_commit.message, '[release]')
+      contains(github.event.head_commit.message, '[release')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
