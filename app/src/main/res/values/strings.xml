@@ -7,11 +7,11 @@
     <string name="land">LAND</string>
     <string name="emergency">EMERGENCY</string>
     <string name="speed_normal">NORMAL</string>
-    <string name="speed_fast">RAPIDE</string>
+    <string name="speed_fast">FAST</string>
     <string name="rec_start">REC</string>
     <string name="rec_stop">STOP</string>
     <string name="photo">PHOTO</string>
 
-    <string name="status_disconnected">Déconnecté</string>
-    <string name="telemetry_placeholder">Bat: -- %  |  Alt: -- cm  |  Sol: -- cm</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="telemetry_placeholder">Bat: -- %  |  Alt: -- cm  |  Ground: -- cm</string>
 </resources>

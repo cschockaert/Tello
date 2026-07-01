@@ -109,7 +109,7 @@ class TelloController(
             }
         } catch (e: Exception) {
             Log.e(TAG, "socket open failed", e)
-            onLog("Erreur ouverture sockets: ${e.message}")
+            onLog("Socket open error: ${e.message}")
             controlExecutor?.shutdownNow()
             controlExecutor = null
             running.set(false)
@@ -124,18 +124,18 @@ class TelloController(
         // threads racing for the same "ok"). Only start the rc keep-alive (which
         // would otherwise flood the channel) and signal readiness once SDK mode is up.
         submitControl {
-            onLog("Passage en mode SDK…")
+            onLog("Entering SDK mode…")
             // The very first datagram is often dropped, so warm up with a throwaway
             // "command" before the awaited one — avoids a full RESPONSE_TIMEOUT stall.
             sendRaw("command")
             sleepQuiet(100)
             if (!sendCommandWaitOk("command", RESPONSE_TIMEOUT_MS, RETRY_COUNT)) {
-                onLog("Échec mode SDK : vérifie le WiFi Tello et reconnecte")
+                onLog("SDK mode failed: check the Tello Wi-Fi and reconnect")
                 onFailed()
                 return@submitControl
             }
             sdkReady.set(true)
-            onLog("Mode SDK actif")
+            onLog("SDK mode active")
             startRcLoop()
             onReady()
         }
@@ -157,20 +157,20 @@ class TelloController(
         try { stateSocket?.close() } catch (_: Exception) {}
         cmdSocket = null
         stateSocket = null
-        onLog("Déconnecté")
+        onLog("Disconnected")
     }
 
     // ---- High level commands ---------------------------------------------
 
     fun takeoff() {
         submitControl {
-            if (!sdkReady.get()) { onLog("Pas encore en mode SDK, décollage ignoré"); return@submitControl }
+            if (!sdkReady.get()) { onLog("Not in SDK mode yet, takeoff ignored"); return@submitControl }
             resetRc()
             if (sendCommandWaitOk("takeoff", TAKEOFF_TIMEOUT_MS, RETRY_COUNT)) {
                 flying.set(true)
-                onLog("Décollage OK")
+                onLog("Takeoff OK")
             } else {
-                onLog("Échec décollage (pas de 'ok' du Tello)")
+                onLog("Takeoff failed (no 'ok' from the Tello)")
             }
         }
     }
@@ -200,8 +200,8 @@ class TelloController(
     }
 
     fun streamOn() = submitControl {
-        if (sendCommandWaitOk("streamon", RESPONSE_TIMEOUT_MS, RETRY_COUNT)) onLog("Flux vidéo activé")
-        else onLog("Échec streamon (pas de 'ok' du Tello)")
+        if (sendCommandWaitOk("streamon", RESPONSE_TIMEOUT_MS, RETRY_COUNT)) onLog("Video stream enabled")
+        else onLog("streamon failed (no 'ok' from the Tello)")
     }
 
     fun streamOff() = submitControl { sendCommandWaitOk("streamoff", RESPONSE_TIMEOUT_MS, RETRY_COUNT) }
@@ -233,9 +233,9 @@ class TelloController(
                 awaitingResponse = false
             }
             when {
-                resp == null -> onLog("Pas de réponse à '$command' (tentative ${attempt + 1}/$retries)")
+                resp == null -> onLog("No response to '$command' (attempt ${attempt + 1}/$retries)")
                 resp.lowercase().contains("ok") -> return true
-                else -> onLog("Tello: '$resp' en réponse à '$command'")
+                else -> onLog("Tello: '$resp' in response to '$command'")
             }
         }
         return false
